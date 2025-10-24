@@ -1,0 +1,114 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Cupom SevenKN Ingest API",
+    "version": "1.0.0",
+    "description": "API para ingestão de cupons detectados pelo ChatGPT (Actions) e envio ao Discord."
+  },
+  "paths": {
+    "/coupons": {
+      "post": {
+        "summary": "Enviar cupons para processamento",
+        "description": "Aceita um objeto único de cupom, um array de cupons ou um objeto com a propriedade 'coupons'. Deduplica por 'id' (ou 'code'/'link'/'title').",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "code": { "type": "string" },
+                      "link": { "type": "string", "format": "uri" },
+                      "url": { "type": "string", "format": "uri" }
+                    }
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "code": { "type": "string" },
+                        "link": { "type": "string", "format": "uri" },
+                        "url": { "type": "string", "format": "uri" }
+                      },
+                      "required": ["id", "title"]
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "coupons": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "title": { "type": "string" },
+                            "code": { "type": "string" },
+                            "link": { "type": "string", "format": "uri" },
+                            "url": { "type": "string", "format": "uri" }
+                          },
+                          "required": ["id", "title"]
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "examples": {
+                "single": {
+                  "value": { "id": "7kr-oct-24-abc", "title": "Cupom ABC", "link": "https://exemplo.com/cupom-abc" }
+                },
+                "array": {
+                  "value": [
+                    { "id": "7kr-1", "title": "Cupom 1", "link": "https://exemplo.com/1" },
+                    { "id": "7kr-2", "title": "Cupom 2" }
+                  ]
+                },
+                "wrapped": {
+                  "value": { "coupons": [ { "id": "7kr-3", "title": "Cupom 3" } ] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Processamento realizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": { "type": "integer" },
+                    "skipped": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Payload inválido"
+          },
+          "500": {
+            "description": "Erro interno"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Healthcheck",
+        "responses": {
+          "200": { "description": "ok" }
+        }
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
+const express = require('express');
 
 // Carregar configurações de variáveis de ambiente ou arquivo config.js
 const RSS_URL = process.env.RSS_URL || require('./config').RSS_URL;
@@ -153,3 +154,64 @@ if (SOURCE_PROVIDER === 'json') {
   cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkRssFeed);
   console.log(`Automação iniciada! Verificando feed RSS a cada ${CHECK_INTERVAL} minutos.`);
 }
+
+// -------------------
+// Servidor HTTP (ChatGPT Actions / webhook)
+// -------------------
+const app = express();
+app.use(express.json());
+
+// Healthcheck para Render
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
+
+// Servir OpenAPI (se existir)
+app.get('/openapi.json', (req, res) => {
+  res.sendFile(path.join(__dirname, 'openapi.json'));
+});
+
+// Ingestão de cupons via POST
+app.post('/coupons', async (req, res) => {
+  try {
+    const body = req.body;
+    const items = Array.isArray(body) ? body : (Array.isArray(body?.coupons) ? body.coupons : [body]);
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'Payload vazio ou inválido. Envie um objeto de cupom ou array/coupons.' });
+    }
+
+    const processedItems = loadProcessedItems();
+    let accepted = 0;
+    let skipped = 0;
+
+    for (const item of items) {
+      if (!item || typeof item !== 'object') { skipped++; continue; }
+      const id = item.id || item.code || item.link || item.title;
+      const title = item.title || item.code || 'Cupom';
+      const link = item.link || item.url || '';
+      if (!id) { skipped++; continue; }
+      if (processedItems.processedGuids.includes(id)) { skipped++; continue; }
+      const ok = await sendToDiscord(title, link);
+      if (ok) {
+        processedItems.processedGuids.push(id);
+        accepted++;
+      } else {
+        skipped++;
+      }
+    }
+
+    if (accepted > 0) {
+      saveProcessedItems(processedItems);
+    }
+
+    return res.status(200).json({ accepted, skipped });
+  } catch (err) {
+    console.error('Erro em /coupons:', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`HTTP server ouvindo na porta ${PORT}`);
+});
