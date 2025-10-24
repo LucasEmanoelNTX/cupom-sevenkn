@@ -13,7 +13,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL || require('./config').WEBHOOK_URL;
 const CHECK_INTERVAL = process.env.CHECK_INTERVAL || require('./config').CHECK_INTERVAL;
 const MESSAGE_FORMAT = process.env.MESSAGE_FORMAT || require('./config').MESSAGE_FORMAT;
 const STORAGE_FILE = path.join(__dirname, process.env.STORAGE_FILE || require('./config').STORAGE_FILE);
-const SOURCE_PROVIDER = process.env.SOURCE_PROVIDER || 'rss';
+const SOURCE_PROVIDER = process.env.SOURCE_PROVIDER || 'forum'
 const COUPONS_JSON_URL = process.env.COUPONS_JSON_URL || '';
 
 // Inicializar o parser RSS
@@ -145,7 +145,7 @@ async function checkJsonSource() {
 }
 
 // Variáveis de ambiente para scraping de fórum
-const FORUM_URL_UPDATES = process.env.FORUM_URL_UPDATES || '';
+const FORUM_URL_UPDATES = process.env.FORUM_URL_UPDATES || 'https://forum.netmarble.com/sk_rebirth_gl/list/11/1'
 const FORUM_INCLUDE_KEYWORDS = (process.env.FORUM_INCLUDE_KEYWORDS || 'coupon,cupom,redeem,code,codigo').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 // Executar imediatamente na inicialização
