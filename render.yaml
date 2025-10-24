@@ -1,17 +1,24 @@
 services:
   - type: web
-    name: cupom-sevenknights
+    name: cupom-sevenkn
     env: node
+    plan: free
+    region: oregon
+    autoDeploy: true
     buildCommand: pnpm install --frozen-lockfile
     startCommand: pnpm start
     envVars:
+      - key: SOURCE_PROVIDER
+        value: rss
       - key: RSS_URL
-        value: https://www.prydwen.gg/feed/
-      - key: CHECK_INTERVAL
-        value: 30
-      - key: MESSAGE_FORMAT
-        value: 🎁 Novo Cupom Seven Knights Re:Birth! 📰 {{title}} 🔗 {{link}}
-      - key: STORAGE_FILE
-        value: processed-items.json
+        value: https://hnrss.org/frontpage
+      - key: COUPONS_JSON_URL
+        value: ""
       - key: WEBHOOK_URL
         sync: false
+      - key: CHECK_INTERVAL
+        value: "5"
+      - key: MESSAGE_FORMAT
+        value: "Novo cupom: {{title}} - {{link}}"
+      - key: STORAGE_FILE
+        value: data.json
