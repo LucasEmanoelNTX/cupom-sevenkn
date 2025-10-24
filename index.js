@@ -155,6 +155,12 @@ if (SOURCE_PROVIDER === 'json') {
   checkJsonSource();
   cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkJsonSource);
   console.log(`Automação iniciada! Verificando JSON a cada ${CHECK_INTERVAL} minutos.`);
+} else if (SOURCE_PROVIDER === 'forum') {
+  console.log('Iniciando monitoramento do fórum...');
+  checkForumSource();
+  // Importante: usar função wrapper para não passar argumentos implícitos do cron
+  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, () => checkForumSource());
+  console.log(`Automação iniciada! Verificando fórum a cada ${CHECK_INTERVAL} minutos.`);
 } else {
   console.log('Iniciando monitoramento do feed RSS...');
   checkRssFeed();
@@ -311,15 +317,3 @@ app.post('/run-forum-check', async (req, res) => {
     res.status(500).json({ error: 'Erro interno' });
   }
 });
-
-// Agendamento por fonte
-if (SOURCE_PROVIDER === 'json') {
-  checkJsonSource();
-  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkJsonSource);
-} else if (SOURCE_PROVIDER === 'forum') {
-  checkForumSource();
-  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkForumSource);
-} else {
-  checkRssFeed();
-  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkRssFeed);
-}
