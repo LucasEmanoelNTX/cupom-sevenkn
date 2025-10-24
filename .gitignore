@@ -1,0 +1,25 @@
+# Dependências
+node_modules/
+
+# Arquivos de ambiente
+.env
+.env.local
+
+# Arquivos de log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de armazenamento local
+processed-items.json
+
+# Arquivos específicos do Windows
+iniciar-automaticamente.bat
+iniciar-na-inicializacao.vbs
+configurar-tarefa-agendada.bat
+task-scheduler-setup.xml

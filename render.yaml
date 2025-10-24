@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cupom-sevenknights
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: RSS_URL
+        value: https://www.prydwen.gg/feed/
+      - key: CHECK_INTERVAL
+        value: 30
+      - key: MESSAGE_FORMAT
+        value: 🎁 Novo Cupom Seven Knights Re:Birth! 📰 {{title}} 🔗 {{link}}
+      - key: STORAGE_FILE
+        value: processed-items.json
+      - key: WEBHOOK_URL
+        sync: false

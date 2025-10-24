@@ -1,0 +1,18 @@
+{
+  "name": "cupom-sevenKN",
+  "version": "1.0.0",
+  "description": "Automação para monitorar cupons do Seven Knights Re:Birth e enviar para Discord",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "rss-parser": "^3.13.0",
+    "node-fetch": "^2.6.9",
+    "node-cron": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
