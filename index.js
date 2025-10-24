@@ -236,15 +236,13 @@ async function checkForumSource() {
   console.log(`[forum] Verificando página: ${FORUM_URL_UPDATES} @ ${new Date().toLocaleString()}`);
   if (!FORUM_URL_UPDATES) {
     console.error('[forum] FORUM_URL_UPDATES não configurada');
-    return;
+    return { accepted: 0, found: 0 };
   }
   const processedItems = loadProcessedItems();
   let found = [];
   try {
     const resp = await axios.get(FORUM_URL_UPDATES, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
     const $ = cheerio.load(resp.data);
-
-    // Heurística: links de posts costumam conter '/view/' no caminho.
     $('a[href]').each((i, el) => {
       const href = $(el).attr('href') || '';
       const title = ($(el).text() || '').trim();
@@ -260,10 +258,8 @@ async function checkForumSource() {
     });
   } catch (e) {
     console.error('[forum] Falha ao buscar/parsear a página:', e.message);
-    return;
+    return { accepted: 0, found: 0 };
   }
-
-  // Remover duplicados por id
   const uniq = [];
   const seen = new Set();
   for (const item of found) {
@@ -271,23 +267,32 @@ async function checkForumSource() {
     seen.add(item.id);
     uniq.push(item);
   }
-
   if (uniq.length === 0) {
     console.log('[forum] Nenhum item compatível encontrado.');
-    return;
+    return { accepted: 0, found: 0 };
   }
-
-  let anySent = false;
-  for (const item of uniq.slice(0, 20)) { // limita a 20 por rodada para evitar spam
+  let accepted = 0;
+  for (const item of uniq.slice(0, 20)) {
     if (processedItems.processedGuids && processedItems.processedGuids.includes(item.id)) continue;
     const ok = await sendToDiscord(item.title, item.link);
     if (ok) {
       processedItems.processedGuids.push(item.id);
-      anySent = true;
+      accepted++;
     }
   }
-  if (anySent) saveProcessedItems(processedItems);
+  if (accepted > 0) saveProcessedItems(processedItems);
+  return { accepted, found: uniq.length };
 }
+
+app.post('/run-forum-check', async (req, res) => {
+  try {
+    const result = await checkForumSource();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('Erro em /run-forum-check:', err);
+    res.status(500).json({ error: 'Erro interno' });
+  }
+});
 
 // Agendamento por fonte
 if (SOURCE_PROVIDER === 'json') {
