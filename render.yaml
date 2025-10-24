@@ -9,7 +9,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SOURCE_PROVIDER
-        value: rss
+        value: forum
       - key: RSS_URL
         value: https://hnrss.org/frontpage
       - key: COUPONS_JSON_URL
@@ -23,6 +23,8 @@ services:
       - key: STORAGE_FILE
         value: data.json
       - key: FORUM_URL_UPDATES
-        value: 
+        value: https://forum.netmarble.com/sk_rebirth_gl/list/11/1
       - key: FORUM_INCLUDE_KEYWORDS
         value: "coupon,cupom,redeem,code,codigo"
+      - key: FORUM_MAX_PAGES
+        value: "2"

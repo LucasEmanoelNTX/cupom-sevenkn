@@ -147,6 +147,7 @@ async function checkJsonSource() {
 // Variáveis de ambiente para scraping de fórum
 const FORUM_URL_UPDATES = process.env.FORUM_URL_UPDATES || 'https://forum.netmarble.com/sk_rebirth_gl/list/11/1'
 const FORUM_INCLUDE_KEYWORDS = (process.env.FORUM_INCLUDE_KEYWORDS || 'coupon,cupom,redeem,code,codigo').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const FORUM_MAX_PAGES = parseInt(process.env.FORUM_MAX_PAGES || '2', 10) || 1;
 
 // Executar imediatamente na inicialização
 if (SOURCE_PROVIDER === 'json') {
@@ -232,32 +233,44 @@ function absoluteUrl(base, href) {
   try { return new URL(href, base).toString(); } catch { return href; }
 }
 
-async function checkForumSource() {
-  console.log(`[forum] Verificando página: ${FORUM_URL_UPDATES} @ ${new Date().toLocaleString()}`);
-  if (!FORUM_URL_UPDATES) {
+function makePageUrl(url, page) {
+  try {
+    if (/(\/list\/\d+\/)(\d+)/.test(url)) {
+      return url.replace(/(\/list\/\d+\/)(\d+)/, `$1${page}`);
+    }
+  } catch {}
+  return url;
+}
+
+async function checkForumSource(urlArg = FORUM_URL_UPDATES, keywordsArg = FORUM_INCLUDE_KEYWORDS, maxPagesArg = FORUM_MAX_PAGES) {
+  console.log(`[forum] Verificando páginas até ${maxPagesArg}: ${urlArg} @ ${new Date().toLocaleString()}`);
+  if (!urlArg) {
     console.error('[forum] FORUM_URL_UPDATES não configurada');
     return { accepted: 0, found: 0 };
   }
   const processedItems = loadProcessedItems();
   let found = [];
   try {
-    const resp = await axios.get(FORUM_URL_UPDATES, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-    const $ = cheerio.load(resp.data);
-    $('a[href]').each((i, el) => {
-      const href = $(el).attr('href') || '';
-      const title = ($(el).text() || '').trim();
-      if (!href) return;
-      const link = absoluteUrl(FORUM_URL_UPDATES, href);
-      const isPostLink = /\/sk_rebirth_gl\/view\//.test(link) || /\/view\//.test(link);
-      const titleLower = title.toLowerCase();
-      const matchesKeyword = FORUM_INCLUDE_KEYWORDS.length === 0 || FORUM_INCLUDE_KEYWORDS.some(k => titleLower.includes(k));
-      if (!isPostLink) return;
-      if (!matchesKeyword) return;
-      const id = link;
-      found.push({ id, title: title || link, link });
-    });
+    for (let p = 1; p <= Math.max(1, maxPagesArg); p++) {
+      const pageUrl = makePageUrl(urlArg, p);
+      const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+      const $ = cheerio.load(resp.data);
+      $('a[href]').each((i, el) => {
+        const href = $(el).attr('href') || '';
+        const title = ($(el).text() || '').trim();
+        if (!href) return;
+        const link = absoluteUrl(pageUrl, href);
+        const isPostLink = /\/sk_rebirth_gl\/view\//.test(link) || /\/view\//.test(link);
+        const titleLower = title.toLowerCase();
+        const matchesKeyword = !keywordsArg || keywordsArg.length === 0 || keywordsArg.some(k => titleLower.includes(k));
+        if (!isPostLink) return;
+        if (!matchesKeyword) return;
+        const id = link;
+        found.push({ id, title: title || link, link });
+      });
+    }
   } catch (e) {
-    console.error('[forum] Falha ao buscar/parsear a página:', e.message);
+    console.error('[forum] Falha ao buscar/parsear a(s) página(s):', e.message);
     return { accepted: 0, found: 0 };
   }
   const uniq = [];
@@ -272,7 +285,7 @@ async function checkForumSource() {
     return { accepted: 0, found: 0 };
   }
   let accepted = 0;
-  for (const item of uniq.slice(0, 20)) {
+  for (const item of uniq.slice(0, 30)) {
     if (processedItems.processedGuids && processedItems.processedGuids.includes(item.id)) continue;
     const ok = await sendToDiscord(item.title, item.link);
     if (ok) {
@@ -286,7 +299,12 @@ async function checkForumSource() {
 
 app.post('/run-forum-check', async (req, res) => {
   try {
-    const result = await checkForumSource();
+    const { url, keywords, maxPages } = req.body || {};
+    let kw = undefined;
+    if (Array.isArray(keywords)) kw = keywords.map(s => String(s).trim().toLowerCase()).filter(Boolean);
+    else if (typeof keywords === 'string') kw = keywords.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const mp = (typeof maxPages === 'number' && maxPages > 0) ? maxPages : (typeof maxPages === 'string' ? parseInt(maxPages, 10) : undefined);
+    const result = await checkForumSource(url || undefined, kw || undefined, mp || undefined);
     res.status(200).json(result);
   } catch (err) {
     console.error('Erro em /run-forum-check:', err);
