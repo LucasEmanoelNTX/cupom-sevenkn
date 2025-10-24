@@ -166,6 +166,11 @@ app.get('/health', (req, res) => {
   res.status(200).send('ok');
 });
 
+// Rota raiz para healthcheck default do Render
+app.get('/', (req, res) => {
+  res.status(200).send('ok');
+});
+
 // Servir OpenAPI (se existir)
 app.get('/openapi.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'openapi.json'));
