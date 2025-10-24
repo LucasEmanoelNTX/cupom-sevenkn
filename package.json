@@ -11,7 +11,9 @@
     "rss-parser": "^3.13.0",
     "node-fetch": "^2.6.9",
     "node-cron": "^3.0.2",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12"
   },
   "engines": {
     "node": ">=22.16.0 <23.0.0"

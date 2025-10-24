@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const express = require('express');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 // Carregar configurações de variáveis de ambiente ou arquivo config.js
 const RSS_URL = process.env.RSS_URL || require('./config').RSS_URL;
@@ -142,6 +144,10 @@ async function checkJsonSource() {
   }
 }
 
+// Variáveis de ambiente para scraping de fórum
+const FORUM_URL_UPDATES = process.env.FORUM_URL_UPDATES || '';
+const FORUM_INCLUDE_KEYWORDS = (process.env.FORUM_INCLUDE_KEYWORDS || 'coupon,cupom,redeem,code,codigo').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
 // Executar imediatamente na inicialização
 if (SOURCE_PROVIDER === 'json') {
   console.log('Iniciando monitoramento de cupons via JSON...');
@@ -220,3 +226,77 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`HTTP server ouvindo na porta ${PORT}`);
 });
+
+
+function absoluteUrl(base, href) {
+  try { return new URL(href, base).toString(); } catch { return href; }
+}
+
+async function checkForumSource() {
+  console.log(`[forum] Verificando página: ${FORUM_URL_UPDATES} @ ${new Date().toLocaleString()}`);
+  if (!FORUM_URL_UPDATES) {
+    console.error('[forum] FORUM_URL_UPDATES não configurada');
+    return;
+  }
+  const processedItems = loadProcessedItems();
+  let found = [];
+  try {
+    const resp = await axios.get(FORUM_URL_UPDATES, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const $ = cheerio.load(resp.data);
+
+    // Heurística: links de posts costumam conter '/view/' no caminho.
+    $('a[href]').each((i, el) => {
+      const href = $(el).attr('href') || '';
+      const title = ($(el).text() || '').trim();
+      if (!href) return;
+      const link = absoluteUrl(FORUM_URL_UPDATES, href);
+      const isPostLink = /\/sk_rebirth_gl\/view\//.test(link) || /\/view\//.test(link);
+      const titleLower = title.toLowerCase();
+      const matchesKeyword = FORUM_INCLUDE_KEYWORDS.length === 0 || FORUM_INCLUDE_KEYWORDS.some(k => titleLower.includes(k));
+      if (!isPostLink) return;
+      if (!matchesKeyword) return;
+      const id = link;
+      found.push({ id, title: title || link, link });
+    });
+  } catch (e) {
+    console.error('[forum] Falha ao buscar/parsear a página:', e.message);
+    return;
+  }
+
+  // Remover duplicados por id
+  const uniq = [];
+  const seen = new Set();
+  for (const item of found) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    uniq.push(item);
+  }
+
+  if (uniq.length === 0) {
+    console.log('[forum] Nenhum item compatível encontrado.');
+    return;
+  }
+
+  let anySent = false;
+  for (const item of uniq.slice(0, 20)) { // limita a 20 por rodada para evitar spam
+    if (processedItems.processedGuids && processedItems.processedGuids.includes(item.id)) continue;
+    const ok = await sendToDiscord(item.title, item.link);
+    if (ok) {
+      processedItems.processedGuids.push(item.id);
+      anySent = true;
+    }
+  }
+  if (anySent) saveProcessedItems(processedItems);
+}
+
+// Agendamento por fonte
+if (SOURCE_PROVIDER === 'json') {
+  checkJsonSource();
+  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkJsonSource);
+} else if (SOURCE_PROVIDER === 'forum') {
+  checkForumSource();
+  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkForumSource);
+} else {
+  checkRssFeed();
+  cron.schedule(`*/${CHECK_INTERVAL} * * * *`, checkRssFeed);
+}
